@@ -5,11 +5,11 @@ struct Serpentine: Identifiable {
     var offset: CGSize
     var color: Color
     var waveAmplitude: CGFloat
-    var waveFrequency: Double // New property for wave frequency
-    var fallSpeed: Double
+    var waveFrequency: Double
+    var speed: Double
+    var angle: Double
     var startTime: Double
 }
-
 
 struct ContentView: View {
     @State private var timerValue: Int = 0
@@ -18,42 +18,37 @@ struct ContentView: View {
     @State private var longEffect: Bool = false
     @State private var serpentines: [Serpentine] = []
     @State private var textScaled: Bool = false
+    @State private var centralizedTimer: Timer? = nil
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 VStack {
+                    // Timer Text
                     Text(formatTime(from: timerValue))
-                        .font(.system(size: 72, weight: .bold, design: .monospaced))
+                        .font(.system(size: 120, weight: .bold, design: .monospaced))
                         .padding()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.black)
                         .foregroundColor(.white)
-                        .scaleEffect(textScaled ? 2.5 : 1.0) // Apply scale effect
-                        .animation(.easeInOut(duration: 0.3), value: textScaled) // Smooth animation
+                        .scaleEffect(textScaled ? 3 : 1.0) // Apply scale effect
+                        .animation(.easeInOut(duration: 0.3), value: textScaled)
 
+                    // Start Button
                     Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            buttonClicked = true
-                        }
-                        withAnimation(.easeInOut(duration: 1.0)) {
-                            longEffect = true
-                        }
-
-                        // Trigger the text scale effect
+                        // Scale the text temporarily
                         textScaled = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             textScaled = false
                         }
 
-                        // Trigger the first explosion
+                        // Trigger serpentines and start the timer
                         triggerSerpentineExplosion(
                             screenWidth: geometry.size.width,
                             screenHeight: geometry.size.height
                         )
-
                         // Schedule ten more explosions at 0.1-second intervals
-                        for i in 1...40 {
+                        for i in 1...5 {
                             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.1) {
                                 triggerSerpentineExplosion(
                                     screenWidth: geometry.size.width,
@@ -61,50 +56,37 @@ struct ContentView: View {
                                 )
                             }
                         }
-
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            buttonClicked = false
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            longEffect = false
-                        }
-
                         startOrResetTimer()
                     }) {
                         Text("Start")
                             .font(.system(size: 24, weight: .bold))
                             .padding()
-                            .frame(maxWidth: 200)
-                            .background(
-                                buttonClicked ? Color.green : (longEffect ? Color.blue.opacity(0.5) : Color.blue)
-                            )
+                            .background(Color.blue)
                             .foregroundColor(.white)
                             .cornerRadius(10)
-                            .scaleEffect(buttonClicked ? 1.2 : 1.0)
                     }
                     .padding()
                 }
 
-                // Serpentines layer
+                // Serpentines Layer
                 ForEach(serpentines) { serpentine in
                     Rectangle()
                         .fill(serpentine.color)
-                        .frame(width: 10, height: 40)
+                        .frame(
+                            width: 10 + serpentine.waveAmplitude,
+                            height: 40 + serpentine.waveAmplitude
+                        )
                         .offset(serpentine.offset)
-                        .onAppear {
-                            animateSerpentine(serpentine, screenHeight: geometry.size.height)
-                        }
                 }
             }
-            .frame(minWidth: 400, minHeight: 300)
         }
     }
 
     private func startOrResetTimer() {
-        timer?.invalidate()
-        timerValue = 0
+        timer?.invalidate() // Stop any existing timer
+        timerValue = 0 // Reset the timer value to 0
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            timerValue += 1
+            timerValue += 1 // Increment the timer value every second
         }
     }
 
@@ -117,51 +99,74 @@ struct ContentView: View {
 
     private func triggerSerpentineExplosion(screenWidth: CGFloat, screenHeight: CGFloat) {
         let colors: [Color] = [.red, .green, .blue, .yellow, .purple, .orange]
-        let newSerpentines = (1...30).map { _ in
+        let newSerpentines = (1...60).map { _ in
             Serpentine(
                 offset: CGSize(
                     width: CGFloat.random(in: -screenWidth / 2 ... screenWidth / 2),
                     height: CGFloat.random(in: -screenHeight / 2 ... screenHeight / 2)
                 ),
                 color: colors.randomElement()!,
-                waveAmplitude: CGFloat.random(in: 20...50),
-                waveFrequency: Double.random(in: 3...8), // Random wave frequency
-                fallSpeed: Double.random(in: 1.5...3.0),
+                waveAmplitude: 1.0,
+                waveFrequency: Double.random(in: 3...8),
+                speed: Double.random(in: 1.5...3.0),
+                angle: Double.random(in: 0...360),
                 startTime: Date().timeIntervalSinceReferenceDate
             )
         }
-        serpentines = newSerpentines
+        serpentines.append(contentsOf: newSerpentines)
+        startCentralizedAnimation(screenWidth: screenWidth, screenHeight: screenHeight)
     }
 
-    private func animateSerpentine(_ serpentine: Serpentine, screenHeight: CGFloat) {
-        let duration = serpentine.fallSpeed
-        let startTime = serpentine.startTime
+    private func startCentralizedAnimation(screenWidth: CGFloat, screenHeight: CGFloat) {
+        centralizedTimer?.invalidate()
 
-        withAnimation(Animation.linear(duration: duration).repeatCount(1, autoreverses: false)) {
-            if let index = serpentines.firstIndex(where: { $0.id == serpentine.id }) {
-                // Animate the serpentine falling off the screen
-                serpentines[index].offset.height = screenHeight / 2
-                Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { _ in
-                    serpentines.removeAll { $0.id == serpentine.id }
+        centralizedTimer = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { timer in
+            let currentTime = Date().timeIntervalSinceReferenceDate
+
+            for index in (0..<serpentines.count).reversed() {
+                var serpentine = serpentines[index]
+                let elapsed = currentTime - serpentine.startTime
+
+                let angleInRadians = serpentine.angle * (.pi / 180)
+                let dx = cos(angleInRadians) * serpentine.speed
+                let dy = sin(angleInRadians) * serpentine.speed
+
+                serpentine.offset.width += dx
+                serpentine.offset.height += dy
+
+                if elapsed >= 4.0 && elapsed < 4.5 {
+                    // Trigger the burst by scaling the serpentine rapidly
+                    let burstScale = 1.0 + (elapsed - 4.0) * 80.0  // Fast increase for burst effect
+                    serpentine.waveAmplitude = burstScale
+                } else if elapsed >= 4.5 {
+                    // Remove the serpentine after the burst
+                    serpentines.remove(at: index)
+                    continue
+                } else {
+                    serpentine.waveAmplitude = 1.0
+                }
+
+                // Check for out-of-bounds serpentines
+                if abs(serpentine.offset.width) > screenWidth / 2 ||
+                    abs(serpentine.offset.height) > screenHeight / 2 {
+                    serpentines.remove(at: index)
+                } else {
+                    serpentines[index] = serpentine
                 }
             }
-        }
 
-        Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { timer in
-            let elapsed = Date().timeIntervalSinceReferenceDate - startTime
-            if let index = serpentines.firstIndex(where: { $0.id == serpentine.id }) {
-                // Use the serpentine's wave frequency for unique horizontal motion
-                let newX = serpentine.waveAmplitude * sin(elapsed * serpentine.waveFrequency)
-                serpentines[index].offset.width += newX
-            } else {
+            if serpentines.isEmpty {
                 timer.invalidate()
+                centralizedTimer = nil
             }
         }
     }
 
 }
+
 
 #Preview("Timer Preview") {
     ContentView()
-        .frame(width: 400, height: 300) // Specify the size of the preview
+        .frame(width: 800, height: 600) // Specify the size of the preview
 }
+    
