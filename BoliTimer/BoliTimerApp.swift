@@ -14,5 +14,7 @@ struct BoliTimerApp: App {
         WindowGroup {
             ContentView()
         }
+        .defaultSize(width: 1900, height: 800) // Initial window size
+        .windowResizability(.contentSize) // Allows resizing based on content
     }
 }

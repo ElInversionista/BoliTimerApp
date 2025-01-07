@@ -12,92 +12,137 @@ struct Serpentine: Identifiable {
 }
 
 struct ContentView: View {
-    @State private var timerValue: Int = 0
-    @State private var timer: Timer? = nil
-    @State private var buttonClicked: Bool = false
-    @State private var longEffect: Bool = false
-    @State private var serpentines: [Serpentine] = []
-    @State private var textScaled: Bool = false
-    @State private var centralizedTimer: Timer? = nil
-
+    @State private var timerValues: [Int] = []
+    @State private var timerObjects: [Timer?] = []
+    @State private var timerTitles: [String] = []
+    @State private var serpentines: [[Serpentine]] = []
+    @State private var timerCount: String = "" // Text input for dynamic timer count
+    @State private var timerContainers: [Int] = [] // Array to hold dynamically added timers
+    
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
-                VStack {
-                    // Timer Text
-                    Text(formatTime(from: timerValue))
-                        .font(.system(size: 120, weight: .bold, design: .monospaced))
-                        .padding()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.black)
-                        .foregroundColor(.white)
-                        .scaleEffect(textScaled ? 3 : 1.0) // Apply scale effect
-                        .animation(.easeInOut(duration: 0.3), value: textScaled)
-
-                    // Start Button
-                    Button(action: {
-                        // Scale the text temporarily
-                        textScaled = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            textScaled = false
-                        }
-
-                        // Trigger serpentines and start the timer
-                        triggerSerpentineExplosion(
-                            screenWidth: geometry.size.width,
-                            screenHeight: geometry.size.height
-                        )
-                        // Schedule ten more explosions at 0.1-second intervals
-                        for i in 1...5 {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.1) {
-                                triggerSerpentineExplosion(
-                                    screenWidth: geometry.size.width,
-                                    screenHeight: geometry.size.height
-                                )
-                            }
-                        }
-                        startOrResetTimer()
-                    }) {
-                        Text("Start")
-                            .font(.system(size: 24, weight: .bold))
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
+            let totalPadding: CGFloat = 40
+            let containerWidth = (geometry.size.width - totalPadding * 2 - 60) / 4
+            let containerHeight = containerWidth * 0.8
+            
+            VStack(spacing: 20) {
+                // Timer Count TextField
+                TextField("Enter number (e.g., 3, 6, 9)", text: $timerCount)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(width: 200)
                     .padding()
+                
+                // Button to add timers based on input
+                Button(action: {
+                    if let count = Int(timerCount), count > 0 {
+                        // Resize state arrays dynamically
+                        timerContainers = Array(repeating: 0, count: count)
+                        updateStateArrays(for: count)
+                    }
+                }) {
+                    Text("Add Timers")
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
                 }
-
-                // Serpentines Layer
-                ForEach(serpentines) { serpentine in
-                    Rectangle()
-                        .fill(serpentine.color)
-                        .frame(
-                            width: 10 + serpentine.waveAmplitude,
-                            height: 40 + serpentine.waveAmplitude
-                        )
-                        .offset(serpentine.offset)
+                
+                // Timer Grid
+                ScrollView {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4),
+                        spacing: 20
+                    ) {
+                        ForEach(0..<timerContainers.count, id: \.self) { index in
+                            VStack(spacing: 12) {
+                                // Title
+                                TextField("Enter Title", text: $timerTitles[index])
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.black)
+                                    .padding(8)
+                                    .background(Color.gray.opacity(0.2))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.gray, lineWidth: 1)
+                                    )
+                                
+                                // Timer Counter
+                                Text(formatTime(from: timerValues[index]))
+                                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.black)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                                
+                                // Button
+                                Button(action: {
+                                    startTimer(index: index, screenWidth: geometry.size.width, screenHeight: geometry.size.height)
+                                }) {
+                                    Text("Start")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .padding()
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(8)
+                                }
+                            }
+                            .padding()
+                            .frame(
+                                width: containerWidth,
+                                height: containerHeight
+                            )
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .shadow(radius: 4)
+                            .overlay(
+                                ZStack {
+                                    ForEach(serpentines[index]) { serpentine in
+                                        Rectangle()
+                                            .fill(serpentine.color)
+                                            .frame(width: 10 + serpentine.waveAmplitude, height: 40 + serpentine.waveAmplitude)
+                                            .offset(serpentine.offset)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, totalPadding)
                 }
             }
         }
     }
-
-    private func startOrResetTimer() {
-        timer?.invalidate() // Stop any existing timer
-        timerValue = 0 // Reset the timer value to 0
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            timerValue += 1 // Increment the timer value every second
+    
+    private func updateStateArrays(for count: Int) {
+        let additionalCount = count - timerTitles.count
+        
+        if additionalCount > 0 {
+            timerTitles.append(contentsOf: Array(repeating: "Timer", count: additionalCount))
+            timerValues.append(contentsOf: Array(repeating: 0, count: additionalCount))
+            timerObjects.append(contentsOf: Array(repeating: nil, count: additionalCount))
+            serpentines.append(contentsOf: Array(repeating: [], count: additionalCount))
         }
     }
-
+    
+    private func startTimer(index: Int, screenWidth: CGFloat, screenHeight: CGFloat) {
+        timerObjects[index]?.invalidate()
+        timerValues[index] = 0
+        timerObjects[index] = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            timerValues[index] += 1
+        }
+        triggerSerpentineExplosion(index: index, screenWidth: screenWidth, screenHeight: screenHeight)
+    }
+    
     private func formatTime(from seconds: Int) -> String {
         let hours = seconds / 3600
         let minutes = (seconds % 3600) / 60
         let secs = seconds % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, secs)
     }
-
-    private func triggerSerpentineExplosion(screenWidth: CGFloat, screenHeight: CGFloat) {
+    
+    private func triggerSerpentineExplosion(index: Int, screenWidth: CGFloat, screenHeight: CGFloat) {
         let colors: [Color] = [.red, .green, .blue, .yellow, .purple, .orange]
         let newSerpentines = (1...60).map { _ in
             Serpentine(
@@ -113,18 +158,16 @@ struct ContentView: View {
                 startTime: Date().timeIntervalSinceReferenceDate
             )
         }
-        serpentines.append(contentsOf: newSerpentines)
-        startCentralizedAnimation(screenWidth: screenWidth, screenHeight: screenHeight)
+        serpentines[index] = newSerpentines
+        startCentralizedAnimation(index: index, screenWidth: screenWidth, screenHeight: screenHeight)
     }
-
-    private func startCentralizedAnimation(screenWidth: CGFloat, screenHeight: CGFloat) {
-        centralizedTimer?.invalidate()
-
-        centralizedTimer = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { timer in
+    
+    private func startCentralizedAnimation(index: Int, screenWidth: CGFloat, screenHeight: CGFloat) {
+        Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { timer in
             let currentTime = Date().timeIntervalSinceReferenceDate
 
-            for index in (0..<serpentines.count).reversed() {
-                var serpentine = serpentines[index]
+            for i in (0..<serpentines[index].count).reversed() {
+                var serpentine = serpentines[index][i]
                 let elapsed = currentTime - serpentine.startTime
 
                 let angleInRadians = serpentine.angle * (.pi / 180)
@@ -134,39 +177,29 @@ struct ContentView: View {
                 serpentine.offset.width += dx
                 serpentine.offset.height += dy
 
-                if elapsed >= 4.0 && elapsed < 4.5 {
-                    // Trigger the burst by scaling the serpentine rapidly
-                    let burstScale = 1.0 + (elapsed - 4.0) * 80.0  // Fast increase for burst effect
-                    serpentine.waveAmplitude = burstScale
-                } else if elapsed >= 4.5 {
-                    // Remove the serpentine after the burst
-                    serpentines.remove(at: index)
-                    continue
+                if elapsed >= 4.0 {
+                    let scale = 1.0 + 0.5 * sin((elapsed - 4.0) * 4.0)
+                    serpentine.waveAmplitude = scale
                 } else {
                     serpentine.waveAmplitude = 1.0
                 }
 
-                // Check for out-of-bounds serpentines
-                if abs(serpentine.offset.width) > screenWidth / 2 ||
-                    abs(serpentine.offset.height) > screenHeight / 2 {
-                    serpentines.remove(at: index)
+                if abs(serpentine.offset.width) > screenWidth / 2 || abs(serpentine.offset.height) > screenHeight / 2 {
+                    serpentines[index].remove(at: i)
                 } else {
-                    serpentines[index] = serpentine
+                    serpentines[index][i] = serpentine
                 }
             }
 
-            if serpentines.isEmpty {
+            if serpentines[index].isEmpty {
                 timer.invalidate()
-                centralizedTimer = nil
             }
         }
     }
-
 }
-
 
 #Preview("Timer Preview") {
     ContentView()
-        .frame(width: 800, height: 600) // Specify the size of the preview
+        .frame(width: 1400, height: 1300)
 }
-    
+
