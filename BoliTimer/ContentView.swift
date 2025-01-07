@@ -12,70 +12,57 @@ struct Serpentine: Identifiable {
 }
 
 struct ContentView: View {
-    @State private var timerValues: [Int] = []
-    @State private var timerObjects: [Timer?] = []
-    @State private var timerTitles: [String] = []
-    @State private var serpentines: [[Serpentine]] = []
-    @State private var timerCount: String = "" // Text input for dynamic timer count
-    @State private var timerContainers: Int = 20 // Start with 20 timers by default
-    
+    @State private var timerValues: [Int] = Array(repeating: 0, count: 20)
+    @State private var timerObjects: [Timer?] = Array(repeating: nil, count: 20)
+    @State private var timerTitles: [String] = Array(repeating: "Timer", count: 20)
+    @State private var serpentines: [[Serpentine]] = Array(repeating: [], count: 20)
+    @State private var timerCount: String = "20" // Default number of timers
+
     var body: some View {
         GeometryReader { geometry in
             let totalPadding: CGFloat = 40
-            let containerWidth = (geometry.size.width - totalPadding * 2 - 60) / 4
-            let containerHeight = containerWidth * 0.8
+            let baseContainerWidth = (geometry.size.width - totalPadding * 2 - 60) / 4
+            let baseContainerHeight = (baseContainerWidth * 1.2) * 0.4
             
-            VStack(spacing: 20) {
-                // Timer Count TextField
-                TextField("Enter number (e.g., 3, 6, 9)", text: $timerCount)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .frame(width: 200)
-                    .padding()
-                
-                // Button to add timers based on input
-                Button(action: {
-                    if let count = Int(timerCount), count > 0 {
-                        // Update the number of timers
-                        timerContainers = count
-                        updateStateArrays(for: count)
-                    }
-                }) {
-                    Text("Add Timers")
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Timer Count TextField
+                    TextField("Enter number (e.g., 3, 6, 9)", text: $timerCount)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .frame(width: 200)
                         .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
-                
-                // Timer Grid
-                ScrollView {
-                    LazyVGrid(
-                        columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4),
-                        spacing: 20
-                    ) {
-                        ForEach(0..<timerContainers, id: \.self) { index in
+
+                    // Button to add timers based on input
+                    Button(action: {
+                        if let count = Int(timerCount), count > 0 {
+                            updateTimerContainers(count: count)
+                        }
+                    }) {
+                        Text("Add Timers")
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                    }
+                    
+                    // Timer Grid
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4), spacing: 20) {
+                        ForEach(0..<timerValues.count, id: \.self) { index in
                             VStack(spacing: 12) {
                                 // Title
-                                TextField("Enter Title", text: Binding(
-                                    get: { timerTitles.indices.contains(index) ? timerTitles[index] : "" },
-                                    set: { newValue in
-                                        if timerTitles.indices.contains(index) {
-                                            timerTitles[index] = newValue
-                                        }
-                                    }
-                                ))
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black)
-                                .padding(8)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.gray, lineWidth: 1)
-                                )
+                                TextField("Enter Title", text: $timerTitles[index])
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.black)
+                                    .padding(8)
+                                    .background(Color.gray.opacity(0.2))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.gray, lineWidth: 1)
+                                    )
                                 
                                 // Timer Counter
-                                Text(formatTime(from: timerValues.indices.contains(index) ? timerValues[index] : 0))
+                                Text(formatTime(from: timerValues[index]))
                                     .font(.system(size: 20, weight: .bold, design: .monospaced))
                                     .padding()
                                     .frame(maxWidth: .infinity)
@@ -98,15 +85,15 @@ struct ContentView: View {
                             }
                             .padding()
                             .frame(
-                                width: containerWidth,
-                                height: containerHeight
+                                width: baseContainerWidth,
+                                height: baseContainerHeight
                             )
                             .background(Color.white)
                             .cornerRadius(12)
                             .shadow(radius: 4)
                             .overlay(
                                 ZStack {
-                                    ForEach(serpentines.indices.contains(index) ? serpentines[index] : []) { serpentine in
+                                    ForEach(serpentines[index]) { serpentine in
                                         Rectangle()
                                             .fill(serpentine.color)
                                             .frame(width: 10 + serpentine.waveAmplitude, height: 40 + serpentine.waveAmplitude)
@@ -116,38 +103,34 @@ struct ContentView: View {
                             )
                         }
                     }
-                    .padding(.horizontal, totalPadding)
                 }
+                .padding(totalPadding)
             }
-        }
-        .onAppear {
-            // Initialize state arrays for 20 timers
-            updateStateArrays(for: timerContainers)
         }
     }
     
-    private func updateStateArrays(for count: Int) {
-        let additionalCount = count - timerTitles.count
+    private func updateTimerContainers(count: Int) {
+        let additionalCount = max(count - timerValues.count, 0)
         
-        if additionalCount > 0 {
-            timerTitles.append(contentsOf: Array(repeating: "Timer", count: additionalCount))
-            timerValues.append(contentsOf: Array(repeating: 0, count: additionalCount))
-            timerObjects.append(contentsOf: Array(repeating: nil, count: additionalCount))
-            serpentines.append(contentsOf: Array(repeating: [], count: additionalCount))
-        }
+        timerValues.append(contentsOf: Array(repeating: 0, count: additionalCount))
+        timerObjects.append(contentsOf: Array(repeating: nil, count: additionalCount))
+        timerTitles.append(contentsOf: Array(repeating: "Timer", count: additionalCount))
+        serpentines.append(contentsOf: Array(repeating: [], count: additionalCount))
     }
     
     private func startTimer(index: Int, screenWidth: CGFloat, screenHeight: CGFloat) {
-        guard timerValues.indices.contains(index) else { return }
-        
         timerObjects[index]?.invalidate()
         timerValues[index] = 0
         timerObjects[index] = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            if timerValues.indices.contains(index) {
-                timerValues[index] += 1
+            timerValues[index] += 1
+        }
+
+        // Trigger Serpentine Explosion 10 times with a delay of 0.1 seconds
+        for i in 0..<10 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.1) {
+                triggerSerpentineExplosion(index: index, screenWidth: screenWidth, screenHeight: screenHeight)
             }
         }
-        triggerSerpentineExplosion(index: index, screenWidth: screenWidth, screenHeight: screenHeight)
     }
     
     private func formatTime(from seconds: Int) -> String {
@@ -158,8 +141,6 @@ struct ContentView: View {
     }
     
     private func triggerSerpentineExplosion(index: Int, screenWidth: CGFloat, screenHeight: CGFloat) {
-        guard serpentines.indices.contains(index) else { return }
-        
         let colors: [Color] = [.red, .green, .blue, .yellow, .purple, .orange]
         let newSerpentines = (1...60).map { _ in
             Serpentine(
@@ -176,6 +157,42 @@ struct ContentView: View {
             )
         }
         serpentines[index] = newSerpentines
+        startCentralizedAnimation(index: index, screenWidth: screenWidth, screenHeight: screenHeight)
+    }
+    
+    private func startCentralizedAnimation(index: Int, screenWidth: CGFloat, screenHeight: CGFloat) {
+        Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { timer in
+            let currentTime = Date().timeIntervalSinceReferenceDate
+
+            for i in (0..<serpentines[index].count).reversed() {
+                var serpentine = serpentines[index][i]
+                let elapsed = currentTime - serpentine.startTime
+
+                let angleInRadians = serpentine.angle * (.pi / 180)
+                let dx = cos(angleInRadians) * serpentine.speed
+                let dy = sin(angleInRadians) * serpentine.speed
+
+                serpentine.offset.width += dx
+                serpentine.offset.height += dy
+
+                if elapsed >= 4.0 {
+                    let scale = 1.0 + 0.5 * sin((elapsed - 4.0) * 4.0)
+                    serpentine.waveAmplitude = scale
+                } else {
+                    serpentine.waveAmplitude = 1.0
+                }
+
+                if abs(serpentine.offset.width) > screenWidth / 2 || abs(serpentine.offset.height) > screenHeight / 2 {
+                    serpentines[index].remove(at: i)
+                } else {
+                    serpentines[index][i] = serpentine
+                }
+            }
+
+            if serpentines[index].isEmpty {
+                timer.invalidate()
+            }
+        }
     }
 }
 
