@@ -23,7 +23,7 @@ struct ContentView: View {
         GeometryReader { geometry in
             let totalPadding: CGFloat = 40
             let containerWidth = (geometry.size.width - totalPadding * 2 - 60) / 4
-            let containerHeight = containerWidth * 0.8
+            let containerHeight = containerWidth * 0.45
             
             VStack(spacing: 20) {
                 // Timer Count TextField
@@ -57,7 +57,7 @@ struct ContentView: View {
                             VStack(spacing: 12) {
                                 // Title
                                 TextField("Enter Title", text: $timerTitles[index])
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.system(size: 34, weight: .medium))
                                     .foregroundColor(.black)
                                     .padding(8)
                                     .background(Color.gray.opacity(0.2))
