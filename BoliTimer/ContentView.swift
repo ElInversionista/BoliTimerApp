@@ -18,6 +18,8 @@ struct ContentView: View {
     @State private var serpentines: [[Serpentine]] = Array(repeating: [], count: 20)
     @State private var timerCount: String = "20" // Default number of timers
     @State private var timerScales: [CGFloat] = Array(repeating: 1.0, count: 20)
+    @State private var timerBackgroundColors: [Color] = Array(repeating: Color.white, count: 20)
+
 
     var body: some View {
         GeometryReader { geometry in
@@ -94,7 +96,7 @@ struct ContentView: View {
                                 width: baseContainerWidth,
                                 height: baseContainerHeight
                             )
-                            .background(Color.white)
+                            .background(timerBackgroundColors[index]) // Use dynamic background color
                             .cornerRadius(12)
                             .shadow(radius: 4)
                             .overlay(
@@ -107,6 +109,8 @@ struct ContentView: View {
                                     }
                                 }
                             )
+
+
                         }
                     }
                 }
@@ -145,6 +149,11 @@ struct ContentView: View {
             timerValues[index] += 1
         }
         
+        // Change the background color of the clicked timer container to green
+        withAnimation {
+            timerBackgroundColors[index] = Color.green
+        }
+        
         // Trigger scaling animation
         withAnimation(.easeInOut(duration: 0.2)) {
             timerScales[index] = 3.0
@@ -162,6 +171,8 @@ struct ContentView: View {
             }
         }
     }
+
+
 
     
     private func formatTime(from seconds: Int) -> String {
