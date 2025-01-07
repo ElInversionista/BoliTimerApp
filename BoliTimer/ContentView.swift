@@ -118,10 +118,10 @@ struct ContentView: View {
             }
         }
     }
-    
+
     private func updateTimerContainers(count: Int) {
         let currentCount = timerValues.count
-        
+
         if count > currentCount {
             // Add additional elements
             let additionalCount = count - currentCount
@@ -130,13 +130,16 @@ struct ContentView: View {
             timerTitles.append(contentsOf: Array(repeating: "Timer", count: additionalCount))
             serpentines.append(contentsOf: Array(repeating: [], count: additionalCount))
             timerScales.append(contentsOf: Array(repeating: 1.0, count: additionalCount))
+            timerBackgroundColors.append(contentsOf: Array(repeating: Color.white, count: additionalCount))
         } else if count < currentCount {
             // Remove excess elements
-            timerValues.removeLast(currentCount - count)
-            timerObjects.removeLast(currentCount - count)
-            timerTitles.removeLast(currentCount - count)
-            serpentines.removeLast(currentCount - count)
-            timerScales.removeLast(currentCount - count)
+            let excessCount = currentCount - count
+            timerValues.removeLast(excessCount)
+            timerObjects.removeLast(excessCount)
+            timerTitles.removeLast(excessCount)
+            serpentines.removeLast(excessCount)
+            timerScales.removeLast(excessCount)
+            timerBackgroundColors.removeLast(excessCount)
         }
     }
 
