@@ -56,7 +56,7 @@ struct ContentView: View {
                             VStack(spacing: 12) {
                                 // Title
                                 TextField("Enter Title", text: $timerTitles[index])
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.system(size: 35, weight: .medium))
                                     .foregroundColor(.black)
                                     .padding(8)
                                     .background(Color.gray.opacity(0.2))
@@ -68,7 +68,7 @@ struct ContentView: View {
                                 
                                 // Timer Counter
                                 Text(formatTime(from: timerValues[index]))
-                                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                                    .font(.system(size: 35, weight: .bold, design: .monospaced))
                                     .padding()
                                     .frame(maxWidth: .infinity)
                                     .background(Color.black)
@@ -81,7 +81,7 @@ struct ContentView: View {
                                     startTimer(index: index, screenWidth: geometry.size.width, screenHeight: geometry.size.height)
                                 }) {
                                     Text("Start")
-                                        .font(.system(size: 16, weight: .bold))
+                                        .font(.system(size: 35, weight: .bold))
                                         .padding()
                                         .frame(maxWidth: .infinity)
                                         .background(Color.blue)
