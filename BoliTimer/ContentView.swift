@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var timerTitles: [String] = Array(repeating: "Timer", count: 20)
     @State private var serpentines: [[Serpentine]] = Array(repeating: [], count: 20)
     @State private var timerCount: String = "20" // Default number of timers
+    @State private var timerScales: [CGFloat] = Array(repeating: 1.0, count: 20)
 
     var body: some View {
         GeometryReader { geometry in
@@ -34,8 +35,11 @@ struct ContentView: View {
 
                     // Button to add timers based on input
                     Button(action: {
+                        // Validate the input
                         if let count = Int(timerCount), count > 0 {
                             updateTimerContainers(count: count)
+                        } else {
+                            print("Invalid input for timer count.")
                         }
                     }) {
                         Text("Add Timers")
@@ -44,6 +48,7 @@ struct ContentView: View {
                             .foregroundColor(.white)
                             .cornerRadius(8)
                     }
+
                     
                     // Timer Grid
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4), spacing: 20) {
@@ -69,6 +74,7 @@ struct ContentView: View {
                                     .background(Color.black)
                                     .foregroundColor(.white)
                                     .cornerRadius(8)
+                                    .scaleEffect(timerScales[index]) // Apply the scaling effect
                                 
                                 // Button
                                 Button(action: {
@@ -110,28 +116,53 @@ struct ContentView: View {
     }
     
     private func updateTimerContainers(count: Int) {
-        let additionalCount = max(count - timerValues.count, 0)
+        let currentCount = timerValues.count
         
-        timerValues.append(contentsOf: Array(repeating: 0, count: additionalCount))
-        timerObjects.append(contentsOf: Array(repeating: nil, count: additionalCount))
-        timerTitles.append(contentsOf: Array(repeating: "Timer", count: additionalCount))
-        serpentines.append(contentsOf: Array(repeating: [], count: additionalCount))
+        if count > currentCount {
+            // Add additional elements
+            let additionalCount = count - currentCount
+            timerValues.append(contentsOf: Array(repeating: 0, count: additionalCount))
+            timerObjects.append(contentsOf: Array(repeating: nil, count: additionalCount))
+            timerTitles.append(contentsOf: Array(repeating: "Timer", count: additionalCount))
+            serpentines.append(contentsOf: Array(repeating: [], count: additionalCount))
+            timerScales.append(contentsOf: Array(repeating: 1.0, count: additionalCount))
+        } else if count < currentCount {
+            // Remove excess elements
+            timerValues.removeLast(currentCount - count)
+            timerObjects.removeLast(currentCount - count)
+            timerTitles.removeLast(currentCount - count)
+            serpentines.removeLast(currentCount - count)
+            timerScales.removeLast(currentCount - count)
+        }
     }
+
     
     private func startTimer(index: Int, screenWidth: CGFloat, screenHeight: CGFloat) {
+        // Reset timer and initialize counter
         timerObjects[index]?.invalidate()
         timerValues[index] = 0
         timerObjects[index] = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
             timerValues[index] += 1
         }
-
-        // Trigger Serpentine Explosion 10 times with a delay of 0.1 seconds
+        
+        // Trigger scaling animation
+        withAnimation(.easeInOut(duration: 0.2)) {
+            timerScales[index] = 3.0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                timerScales[index] = 1.0
+            }
+        }
+        
+        // Trigger Serpentine Explosion 4 times with a delay of 0.1 seconds
         for i in 0..<10 {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.1) {
                 triggerSerpentineExplosion(index: index, screenWidth: screenWidth, screenHeight: screenHeight)
             }
         }
     }
+
     
     private func formatTime(from seconds: Int) -> String {
         let hours = seconds / 3600
