@@ -25,7 +25,7 @@ struct ContentView: View {
         GeometryReader { geometry in
             let totalPadding: CGFloat = 40
             let baseContainerWidth = (geometry.size.width - totalPadding * 2 - 60) / 4
-            let baseContainerHeight = (baseContainerWidth * 1.2) * 0.4
+            let baseContainerHeight = (baseContainerWidth * 1.2) * 0.60
             
             ScrollView {
                 VStack(spacing: 20) {
